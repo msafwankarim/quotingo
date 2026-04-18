@@ -26,23 +26,31 @@ var (
 	}
 	httpClient   = &http.Client{Timeout: 5 * time.Second}
 	jokeAPIURL   = fmt.Sprintf("https://v2.jokeapi.dev/joke/Any?blacklistFlags=explicit&amount=%d", cacheSize)
-	fallbackJoke = "Why do programmers prefer dark mode? Because light attracts bugs."
+	fallbackItem = jokeItem{Setup: "Why do programmers prefer dark mode? Because light attracts bugs."}
 
 	jokeCache = &jokeQueue{}
 )
+
+// jokeItem holds a single joke. Single jokes only populate Setup.
+// Two-part jokes populate both Setup (the question) and Delivery (the punchline).
+type jokeItem struct {
+	Setup    string
+	Delivery string
+	TwoPart  bool
+}
 
 // jokeQueue is a thread-safe queue that pre-fetches jokes in bulk and serves
 // them one at a time. When the queue is drained, it triggers an async refill.
 type jokeQueue struct {
 	mu        sync.Mutex
-	items     []string
+	items     []jokeItem
 	refilling bool
 }
 
 // next dequeues and returns the next cached joke. When the last joke is
 // dequeued it kicks off a background refill so the next batch is ready soon.
-// Returns fallbackJoke if the queue is currently empty (during a refill).
-func (q *jokeQueue) next() string {
+// Returns fallbackItem if the queue is currently empty (during a refill).
+func (q *jokeQueue) next() jokeItem {
 	q.mu.Lock()
 
 	if len(q.items) == 0 {
@@ -54,10 +62,10 @@ func (q *jokeQueue) next() string {
 		if needRefill {
 			go q.refill()
 		}
-		return fallbackJoke
+		return fallbackItem
 	}
 
-	joke := q.items[0]
+	item := q.items[0]
 	q.items = q.items[1:]
 
 	needRefill := len(q.items) == 0 && !q.refilling
@@ -69,7 +77,7 @@ func (q *jokeQueue) next() string {
 	if needRefill {
 		go q.refill()
 	}
-	return joke
+	return item
 }
 
 // refill fetches a fresh batch of jokes from the API and replaces the queue,
@@ -89,7 +97,7 @@ type pageData struct {
 	Message string
 	Version string
 	Authors []string
-	Joke    string
+	Joke    jokeItem
 }
 
 type jokeResponse struct {
@@ -146,55 +154,59 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // fetchBatchJokes calls the JokeAPI batch endpoint and returns the parsed
-// jokes as plain strings. Falls back to a single fallbackJoke on any error.
-func fetchBatchJokes() []string {
+// jokes as jokeItems. Falls back to a single fallbackItem on any error.
+func fetchBatchJokes() []jokeItem {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jokeAPIURL, nil)
 	if err != nil {
-		return []string{fallbackJoke}
+		return []jokeItem{fallbackItem}
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return []string{fallbackJoke}
+		return []jokeItem{fallbackItem}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return []string{fallbackJoke}
+		return []jokeItem{fallbackItem}
 	}
 
 	var batch batchJokeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&batch); err != nil {
-		return []string{fallbackJoke}
+		return []jokeItem{fallbackItem}
 	}
 
-	var result []string
+	var result []jokeItem
 	for _, j := range batch.Jokes {
-		if text := jokeText(j); text != "" {
-			result = append(result, text)
+		if item, ok := toJokeItem(j); ok {
+			result = append(result, item)
 		}
 	}
 
 	if len(result) == 0 {
-		return []string{fallbackJoke}
+		return []jokeItem{fallbackItem}
 	}
 	return result
 }
 
-// jokeText extracts a displayable string from a single joke payload.
-func jokeText(j jokeResponse) string {
+// toJokeItem converts a raw API response into a jokeItem.
+// Returns false if the joke has no usable text.
+func toJokeItem(j jokeResponse) (jokeItem, bool) {
 	switch strings.ToLower(j.Type) {
 	case "single":
-		return strings.TrimSpace(j.Joke)
+		text := strings.TrimSpace(j.Joke)
+		if text != "" {
+			return jokeItem{Setup: text}, true
+		}
 	case "twopart":
 		setup := strings.TrimSpace(j.Setup)
 		delivery := strings.TrimSpace(j.Delivery)
 		if setup != "" && delivery != "" {
-			return setup + " — " + delivery
+			return jokeItem{Setup: setup, Delivery: delivery, TwoPart: true}, true
 		}
 	}
-	return ""
+	return jokeItem{}, false
 }

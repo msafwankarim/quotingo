@@ -49,6 +49,34 @@
         color: #6c757d;
         margin-left: 0.25rem;
       }
+      .punchline {
+        display: none;
+        margin-top: 0.6rem;
+        padding-top: 0.6rem;
+        border-top: 1px dashed #bbb;
+        font-style: italic;
+        color: #444;
+      }
+      .punchline.visible {
+        display: block;
+      }
+      .reveal-btn {
+        display: inline-block;
+        margin-top: 0.75rem;
+        padding: 0.3rem 0.9rem;
+        font-size: 0.85rem;
+        font-style: normal;
+        cursor: pointer;
+        background: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+        border-radius: 4px;
+        transition: background 0.15s, color 0.15s;
+      }
+      .reveal-btn:hover {
+        background: #6c757d;
+        color: #fff;
+      }
       .authors {
         margin-top: 1.5rem;
         padding-top: 1rem;
@@ -79,7 +107,13 @@
     <h1>{{ .Message }}</h1>
     <div class="card">
       <p class="version">Application Version: {{ .Version }}</p>
-      <blockquote class="joke">{{ .Joke }}</blockquote>
+      <blockquote class="joke" id="joke-block">
+        {{ .Joke.Setup }}
+        {{ if .Joke.TwoPart }}
+        <button class="reveal-btn" id="reveal-btn" onclick="revealPunchline()">Reveal punchline</button>
+        <span class="punchline" id="punchline">{{ .Joke.Delivery }}</span>
+        {{ end }}
+      </blockquote>
       <div class="authors">
         <h3>Authors</h3>
         <ul>
@@ -89,5 +123,11 @@
         </ul>
       </div>
     </div>
+    <script>
+      function revealPunchline() {
+        document.getElementById("punchline").classList.add("visible");
+        document.getElementById("reveal-btn").style.display = "none";
+      }
+    </script>
   </body>
 </html>

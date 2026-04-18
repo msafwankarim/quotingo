@@ -12,16 +12,20 @@ import (
 
 // seedCache pre-populates the global joke cache for tests so no real HTTP
 // calls are made to the JokeAPI.
-func seedCache(jokes ...string) {
+func seedCache(items ...jokeItem) {
 	jokeCache.mu.Lock()
-	jokeCache.items = append([]string(nil), jokes...)
+	jokeCache.items = append([]jokeItem(nil), items...)
 	jokeCache.refilling = false
 	jokeCache.mu.Unlock()
 }
 
 func TestHomeHandlerRendersVersionAndAuthors(t *testing.T) {
 	// Seed enough jokes so the handler serving one doesn't trigger a background refill.
-	seedCache("Test joke 1", "Test joke 2", "Test joke 3")
+	seedCache(
+		jokeItem{Setup: "Test joke 1"},
+		jokeItem{Setup: "Test joke 2"},
+		jokeItem{Setup: "Test joke 3"},
+	)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
@@ -47,8 +51,38 @@ func TestHomeHandlerRendersVersionAndAuthors(t *testing.T) {
 	}
 }
 
+func TestHomeHandlerRendersTwoPartJoke(t *testing.T) {
+	seedCache(
+		jokeItem{Setup: "Why did the chicken cross the road?", Delivery: "To get to the other side.", TwoPart: true},
+		jokeItem{Setup: "Extra joke 1"},
+		jokeItem{Setup: "Extra joke 2"},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+
+	homeHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Why did the chicken cross the road?") {
+		t.Fatal("expected setup text in response")
+	}
+	if !strings.Contains(body, "To get to the other side.") {
+		t.Fatal("expected delivery text in response")
+	}
+	if !strings.Contains(body, "reveal-btn") {
+		t.Fatal("expected reveal button in response")
+	}
+	if !strings.Contains(body, `class="punchline"`) {
+		t.Fatal("expected punchline element in response")
+	}
+}
+
 func TestJokeCacheNextDrainsAndRefills(t *testing.T) {
-	// Set up a mock API server that returns two jokes.
 	apiCalled := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		apiCalled++
@@ -68,19 +102,16 @@ func TestJokeCacheNextDrainsAndRefills(t *testing.T) {
 	t.Cleanup(func() {
 		httpClient = oldClient
 		jokeAPIURL = oldURL
-		// Reset cache so subsequent tests start clean.
 		seedCache()
 	})
 
-	// Seed exactly one joke so the first next() returns it and triggers refill.
-	seedCache("Seeded joke")
+	seedCache(jokeItem{Setup: "Seeded joke"})
 
 	first := jokeCache.next()
-	if first != "Seeded joke" {
-		t.Fatalf("expected seeded joke, got %q", first)
+	if first.Setup != "Seeded joke" {
+		t.Fatalf("expected seeded joke, got %q", first.Setup)
 	}
 
-	// Give the background goroutine time to complete (it calls a local httptest server).
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		jokeCache.mu.Lock()
@@ -114,7 +145,7 @@ func TestFetchBatchJokesFallbackOnInvalidJSON(t *testing.T) {
 	})
 
 	jokes := fetchBatchJokes()
-	if len(jokes) != 1 || jokes[0] != fallbackJoke {
+	if len(jokes) != 1 || jokes[0] != fallbackItem {
 		t.Fatalf("expected single fallback joke, got %v", jokes)
 	}
 }
@@ -143,10 +174,10 @@ func TestFetchBatchJokesParsesMultipleJokes(t *testing.T) {
 	if len(jokes) != 2 {
 		t.Fatalf("expected 2 jokes, got %d: %v", len(jokes), jokes)
 	}
-	if jokes[0] != "Joke one" {
-		t.Fatalf("unexpected first joke: %q", jokes[0])
+	if jokes[0].Setup != "Joke one" || jokes[0].TwoPart {
+		t.Fatalf("unexpected first joke: %+v", jokes[0])
 	}
-	if !strings.Contains(jokes[1], "Why?") || !strings.Contains(jokes[1], "Because!") {
-		t.Fatalf("unexpected second joke: %q", jokes[1])
+	if jokes[1].Setup != "Why?" || jokes[1].Delivery != "Because!" || !jokes[1].TwoPart {
+		t.Fatalf("unexpected second joke: %+v", jokes[1])
 	}
 }
