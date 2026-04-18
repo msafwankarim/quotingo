@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-const cacheSize = 10
+const cacheSize = 20
 
 var (
-	version = "dev"
+	version = "1.0.0"
 	authors = []string{
 		"Muhammad Safwan Karim",
 		"Muhammad Jahanzaib",
@@ -123,7 +123,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("go-hello running on :%s (version=%s)", port, version)
+	log.Printf("quotingo running on :%s (version=%s)", port, version)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}

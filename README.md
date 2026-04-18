@@ -1,4 +1,4 @@
-# go-hello
+# quotingo
 A simple hello world application in Go.
 
 ## Run
