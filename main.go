@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
+
+const cacheSize = 10
 
 var (
 	version = "dev"
@@ -20,10 +24,66 @@ var (
 		"Waseem Gul",
 		"Baig",
 	}
-	httpClient   = &http.Client{Timeout: 3 * time.Second}
-	jokeAPIURL   = "https://v2.jokeapi.dev/joke/Any?blacklistFlags=explicit"
+	httpClient   = &http.Client{Timeout: 5 * time.Second}
+	jokeAPIURL   = fmt.Sprintf("https://v2.jokeapi.dev/joke/Any?blacklistFlags=explicit&amount=%d", cacheSize)
 	fallbackJoke = "Why do programmers prefer dark mode? Because light attracts bugs."
+
+	jokeCache = &jokeQueue{}
 )
+
+// jokeQueue is a thread-safe queue that pre-fetches jokes in bulk and serves
+// them one at a time. When the queue is drained, it triggers an async refill.
+type jokeQueue struct {
+	mu        sync.Mutex
+	items     []string
+	refilling bool
+}
+
+// next dequeues and returns the next cached joke. When the last joke is
+// dequeued it kicks off a background refill so the next batch is ready soon.
+// Returns fallbackJoke if the queue is currently empty (during a refill).
+func (q *jokeQueue) next() string {
+	q.mu.Lock()
+
+	if len(q.items) == 0 {
+		needRefill := !q.refilling
+		if needRefill {
+			q.refilling = true
+		}
+		q.mu.Unlock()
+		if needRefill {
+			go q.refill()
+		}
+		return fallbackJoke
+	}
+
+	joke := q.items[0]
+	q.items = q.items[1:]
+
+	needRefill := len(q.items) == 0 && !q.refilling
+	if needRefill {
+		q.refilling = true
+	}
+	q.mu.Unlock()
+
+	if needRefill {
+		go q.refill()
+	}
+	return joke
+}
+
+// refill fetches a fresh batch of jokes from the API and replaces the queue,
+// discarding any remaining stale entries.
+func (q *jokeQueue) refill() {
+	fresh := fetchBatchJokes()
+
+	q.mu.Lock()
+	q.items = fresh
+	q.refilling = false
+	q.mu.Unlock()
+
+	log.Printf("joke cache refilled with %d jokes", len(fresh))
+}
 
 type pageData struct {
 	Message string
@@ -39,7 +99,14 @@ type jokeResponse struct {
 	Delivery string `json:"delivery"`
 }
 
+type batchJokeResponse struct {
+	Jokes []jokeResponse `json:"jokes"`
+}
+
 func main() {
+	// Pre-fill the joke cache synchronously so the first request has a joke ready.
+	jokeCache.refill()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", homeHandler)
 
@@ -70,7 +137,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		Message: "Hello from Go!",
 		Version: version,
 		Authors: authors,
-		Joke:    fetchJoke(r.Context()),
+		Joke:    jokeCache.next(),
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -78,42 +145,56 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func fetchJoke(parent context.Context) string {
-	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
+// fetchBatchJokes calls the JokeAPI batch endpoint and returns the parsed
+// jokes as plain strings. Falls back to a single fallbackJoke on any error.
+func fetchBatchJokes() []string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jokeAPIURL, nil)
 	if err != nil {
-		return fallbackJoke
+		return []string{fallbackJoke}
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fallbackJoke
+		return []string{fallbackJoke}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fallbackJoke
+		return []string{fallbackJoke}
 	}
 
-	var joke jokeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&joke); err != nil {
-		return fallbackJoke
+	var batch batchJokeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&batch); err != nil {
+		return []string{fallbackJoke}
 	}
 
-	switch strings.ToLower(joke.Type) {
-	case "single":
-		if strings.TrimSpace(joke.Joke) != "" {
-			return joke.Joke
+	var result []string
+	for _, j := range batch.Jokes {
+		if text := jokeText(j); text != "" {
+			result = append(result, text)
 		}
+	}
+
+	if len(result) == 0 {
+		return []string{fallbackJoke}
+	}
+	return result
+}
+
+// jokeText extracts a displayable string from a single joke payload.
+func jokeText(j jokeResponse) string {
+	switch strings.ToLower(j.Type) {
+	case "single":
+		return strings.TrimSpace(j.Joke)
 	case "twopart":
-		setup := strings.TrimSpace(joke.Setup)
-		delivery := strings.TrimSpace(joke.Delivery)
+		setup := strings.TrimSpace(j.Setup)
+		delivery := strings.TrimSpace(j.Delivery)
 		if setup != "" && delivery != "" {
 			return setup + " — " + delivery
 		}
 	}
-
-	return fallbackJoke
+	return ""
 }

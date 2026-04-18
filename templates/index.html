@@ -21,6 +21,57 @@
       }
       .version {
         font-weight: bold;
+        margin-bottom: 1rem;
+      }
+      .joke {
+        border-left: 4px solid #6c757d;
+        padding: 0.75rem 1.25rem;
+        margin: 1.25rem 0;
+        background: #f0f0f5;
+        font-style: italic;
+        font-size: 1.1rem;
+        color: #333;
+        border-radius: 0 6px 6px 0;
+      }
+      .joke::before {
+        content: "\201C";
+        font-size: 2rem;
+        line-height: 0;
+        vertical-align: -0.5rem;
+        color: #6c757d;
+        margin-right: 0.25rem;
+      }
+      .joke::after {
+        content: "\201D";
+        font-size: 2rem;
+        line-height: 0;
+        vertical-align: -0.5rem;
+        color: #6c757d;
+        margin-left: 0.25rem;
+      }
+      .authors {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+      }
+      .authors h3 {
+        font-size: 0.8rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 0.4rem;
+      }
+      .authors ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+      }
+      .authors li {
+        font-size: 0.8rem;
+        color: #999;
       }
     </style>
   </head>
@@ -28,14 +79,15 @@
     <h1>{{ .Message }}</h1>
     <div class="card">
       <p class="version">Application Version: {{ .Version }}</p>
-      <h2>Team Authors</h2>
-      <ul>
-        {{ range .Authors }}
-        <li>{{ . }}</li>
-        {{ end }}
-      </ul>
-      <h2>Random Joke</h2>
-      <p>{{ .Joke }}</p>
+      <blockquote class="joke">{{ .Joke }}</blockquote>
+      <div class="authors">
+        <h3>Authors</h3>
+        <ul>
+          {{ range .Authors }}
+          <li>{{ . }}</li>
+          {{ end }}
+        </ul>
+      </div>
     </div>
   </body>
 </html>
