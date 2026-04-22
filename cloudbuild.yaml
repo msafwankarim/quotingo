@@ -1,0 +1,100 @@
+# CI pipeline for the quotingo app repo.
+# Triggered by pushes to main. Runs as the default Cloud Build SA.
+
+substitutions:
+  _REGION: us-central1
+  _AR_REPO: quotingo
+  _ENV_REPO_OWNER: msafwankarim
+  _ENV_REPO_NAME: quotingo-env
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # 1. Static analysis gate
+  - id: vet
+    name: golang:1.22
+    entrypoint: bash
+    args: ["-c", "go vet ./..."]
+
+  # 2. Unit tests
+  - id: test
+    name: golang:1.22
+    entrypoint: bash
+    args: ["-c", "go test ./..."]
+
+  # 3. Build the image
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA
+      - .
+
+  # 4. Post-build smoke test: run the container, curl it, expect HTTP 200
+  - id: smoke-test
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -e
+        IMG=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA
+        CID=$(docker run -d -p 8080:8080 "$IMG")
+        for i in 1 2 3 4 5; do
+          sleep 1
+          if curl -fs http://localhost:8080 >/dev/null; then
+            echo "smoke test passed"
+            docker rm -f "$CID" >/dev/null
+            exit 0
+          fi
+        done
+        echo "smoke test failed"
+        docker logs "$CID" || true
+        docker rm -f "$CID" >/dev/null
+        exit 1
+
+  # 5. Push the image to Artifact Registry
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA
+
+  # 6. Clone env repo, bump the image tag, commit, push.
+  - id: bump-env
+    name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    secretEnv: ["GH_PAT"]
+    args:
+      - -c
+      - |
+        set -e
+        git config --global user.email "ci-bot@quotingo.local"
+        git config --global user.name  "quotingo ci-bot"
+
+        REPO_URL="https://x-access-token:$${GH_PAT}@github.com/${_ENV_REPO_OWNER}/${_ENV_REPO_NAME}.git"
+        git clone "$REPO_URL" env
+        cd env
+
+        NEW_IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA"
+        sed -i -E "s|image:.*quotingo:.*|image: $${NEW_IMG}|g" prod/deployment.yaml
+
+        git add prod/deployment.yaml
+        if git diff --cached --quiet; then
+          echo "no image tag change — skipping commit"
+          exit 0
+        fi
+        git commit -m "ci: bump quotingo image to $SHORT_SHA"
+        git push origin HEAD:main
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/quotingo-env-pat/versions/latest
+      env: GH_PAT
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA
+
+timeout: 900s

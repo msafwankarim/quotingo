@@ -27,7 +27,7 @@ var (
 
 	jokeCache = &repository.JokeQueue{}
 
-	tmpl = template.Must(template.ParseFiles("templates/index.html"))
+	tmpl *template.Template
 )
 
 type pageData struct {
@@ -38,6 +38,8 @@ type pageData struct {
 }
 
 func main() {
+	tmpl = template.Must(template.ParseFiles("templates/index.html"))
+
 	// Pre-fill the joke cache synchronously so the first request has a joke ready.
 	jokeCache.Refill()
 
