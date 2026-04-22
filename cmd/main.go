@@ -18,10 +18,10 @@ var (
 	version = "1.0.0"
 	authors = []Author{
 		{Name: "Muhammad Safwan Karim", RegNo: "537263"},
-		{Name: "Muhammad Jahanzaib", RegNo: "537261"},
+		{Name: "Muhammad Jahanzaib", RegNo: "537531"},
 		{Name: "Muhamaad Mueed", RegNo: "537259"},
 		{Name: "Waseem Gul", RegNo: "537276"},
-		{Name: "Muneeb Baig", RegNo: "537241"},
+		{Name: "Muhammad Muneeb Baig", RegNo: "538655"},
 	}
 
 	jokeCache = &repository.JokeQueue{}
