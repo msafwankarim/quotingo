@@ -5,7 +5,7 @@ substitutions:
   _REGION: us-central1
   _AR_REPO: quotingo
   _ENV_REPO_OWNER: msafwankarim
-  _ENV_REPO_NAME: quotingo-env
+  _ENV_REPO_NAME: quotingo-gitops
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -13,13 +13,13 @@ options:
 steps:
   # 1. Static analysis gate
   - id: vet
-    name: golang:1.22
+    name: golang:1.26
     entrypoint: bash
     args: ["-c", "go vet ./..."]
 
   # 2. Unit tests
   - id: test
-    name: golang:1.22
+    name: golang:1.26
     entrypoint: bash
     args: ["-c", "go test ./..."]
 
@@ -91,7 +91,7 @@ steps:
 
 availableSecrets:
   secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/quotingo-env-pat/versions/latest
+    - versionName: projects/$PROJECT_ID/secrets/quotingo-gitops-pat/versions/latest
       env: GH_PAT
 
 images:

@@ -9,7 +9,6 @@ import (
 	"github.com/msafwankarim/quotingo/internal/repository"
 )
 
-// Author holds a team member's name and registration number.
 type Author struct {
 	Name  string
 	RegNo string
@@ -40,7 +39,6 @@ type pageData struct {
 func main() {
 	tmpl = template.Must(template.ParseFiles("templates/index.html"))
 
-	// Pre-fill the joke cache synchronously so the first request has a joke ready.
 	jokeCache.Refill()
 
 	mux := http.NewServeMux()
