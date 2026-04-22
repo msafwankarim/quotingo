@@ -19,8 +19,8 @@ var (
 	authors = []Author{
 		{Name: "Muhammad Safwan Karim", RegNo: "537263"},
 		{Name: "Muhammad Jahanzaib", RegNo: "537531"},
-		{Name: "Malik Muhammad Mueed", RegNo: "537259"},
-		{Name: "Waseem Gul", RegNo: "537276"},
+		{Name: "Malik Muhammad Mueed Aslam", RegNo: "538108"},
+		{Name: "Waseem Gul", RegNo: "536658"},
 		{Name: "Muhammad Muneeb Baig", RegNo: "538655"},
 	}
 
