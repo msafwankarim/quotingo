@@ -62,7 +62,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := pageData{
-		Message: "Hello from Go!",
+		Message: "Hello from Quotingo!",
 		Version: version,
 		Authors: authors,
 		Joke:    jokeCache.Next(),
