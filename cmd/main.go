@@ -18,7 +18,7 @@ var (
 	version = "1.0.0"
 	authors = []Author{
 		{Name: "Muhammad Safwan Karim", RegNo: "537263"},
-		{Name: "Muhammad Jahanzaib", RegNo: "537531"},
+		{Name: "Muhammad Jahanzeb", RegNo: "537531"},
 		{Name: "Malik Muhammad Mueed Aslam", RegNo: "538108"},
 		{Name: "Waseem Gul", RegNo: "536658"},
 		{Name: "Muhammad Muneeb Baig", RegNo: "538655"},
