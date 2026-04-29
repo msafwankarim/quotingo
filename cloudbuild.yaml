@@ -41,18 +41,18 @@ steps:
       - |
         set -e
         IMG=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA
-        CID=$(docker run -d -p 8080:8080 "$IMG")
+        CID=$$(docker run -d -p 8080:8080 "$$IMG")
         for i in 1 2 3 4 5; do
           sleep 1
           if curl -fs http://localhost:8080 >/dev/null; then
             echo "smoke test passed"
-            docker rm -f "$CID" >/dev/null
+            docker rm -f "$$CID" >/dev/null
             exit 0
           fi
         done
         echo "smoke test failed"
-        docker logs "$CID" || true
-        docker rm -f "$CID" >/dev/null
+        docker logs "$$CID" || true
+        docker rm -f "$$CID" >/dev/null
         exit 1
 
   # 5. Push the image to Artifact Registry
@@ -75,7 +75,7 @@ steps:
         git config --global user.name  "quotingo ci-bot"
 
         REPO_URL="https://x-access-token:$${GH_PAT}@github.com/${_ENV_REPO_OWNER}/${_ENV_REPO_NAME}.git"
-        git clone "$REPO_URL" env
+        git clone "$$REPO_URL" env
         cd env
 
         NEW_IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/quotingo:$SHORT_SHA"
