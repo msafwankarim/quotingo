@@ -27,11 +27,14 @@ func TestHomeHandler_RootReturns200(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Hello from Go!") {
-		t.Errorf("body missing message: %q", body)
+	if !strings.Contains(body, "Quotingo") {
+		t.Errorf("body missing brand string: %q", body)
 	}
 	if !strings.Contains(body, version) {
 		t.Errorf("body missing version: %q", body)
+	}
+	if !strings.Contains(body, "Muhammad Safwan Karim") {
+		t.Errorf("body missing first author: %q", body)
 	}
 }
 
