@@ -14,7 +14,7 @@ import (
 var (
 	cacheSize    = 20
 	fallbackItem = JokeItem{Setup: "Why do programmers prefer dark mode? Because light attracts bugs."}
-	jokeAPIURL   = fmt.Sprintf("https://v2.jokeapi.dev/joke/Any?blacklistFlags=explicit&amount=%d", cacheSize)
+	jokeAPIURL   = fmt.Sprintf("https://v2.jokeapi.dev/joke/Programming?amount=%d", cacheSize)
 	httpClient   = &http.Client{Timeout: 5 * time.Second}
 )
 

@@ -15,7 +15,7 @@ type Author struct {
 }
 
 var (
-	version = "1.0.0-beta-01"
+	version = "1.0.0-beta-02"
 	authors = []Author{
 		{Name: "Muhammad Safwan Karim", RegNo: "537263"},
 		{Name: "Muhammad Jahanzeb", RegNo: "537531"},
