@@ -27,7 +27,7 @@ func TestHomeHandler_RootReturns200(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Quotingo") {
+	if !strings.Contains(body, "DEMO") {
 		t.Errorf("body missing brand string: %q", body)
 	}
 	if !strings.Contains(body, version) {
